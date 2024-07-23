@@ -1,12 +1,21 @@
 #!/usr/bin/env node
 "use strict";
 
-var sheet2i18n = require("../index");
+const path = require("path");
+const sheet2i18n = require("../index");
 
-var [, , configPath] = process.argv;
+const [, , configPathArg] = process.argv;
 
-if (!configPath) {
-  configPath = "sheet2i18n.config";
+const configPath = configPathArg || "sheet2i18n.config";
+const currentDir = process.cwd();
+const resolvedConfigPath = path.resolve(currentDir, configPath);
+
+try {
+  sheet2i18n(resolvedConfigPath, currentDir);
+} catch (error) {
+  console.error(
+    `Failed to execute sheet2i18n with config path: ${resolvedConfigPath}`
+  );
+  console.error(error);
+  process.exit(1);
 }
-
-sheet2i18n(`../../${configPath}`);
