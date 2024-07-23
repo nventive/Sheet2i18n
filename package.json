@@ -1,17 +1,17 @@
 {
   "name": "sheet2i18n",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "Import locale from Google Sheet into Json file.",
   "main": "index.js",
   "bin": {
-    "sheet2i18n": "./bin/sheet2i18n.js"
+    "sheet2i18n": "bin/sheet2i18n.js"
   },
   "scripts": {
     "start": "node bin/sheet2i18n.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/AbdousMounir/sheet2i18n.git"
+    "url": "git+https://github.com/AbdousMounir/sheet2i18n.git"
   },
   "dependencies": {
     "csv-parse": "^5.5.6"

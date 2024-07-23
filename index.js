@@ -6,8 +6,9 @@ const fetch = require("node-fetch");
 /**
  * Load CSV files, parse them, and generate JSON files for localization.
  * @param {string} configPath - Path to the configuration file.
+ * @param {string} currentDir - Path to the root folder.
  */
-async function loadCsv(configPath) {
+async function loadCsv(configPath, currentDir) {
   const { exportPath, tabsUrl, localesKey } = require(configPath);
 
   console.log("[+] IMPORTING LOCALES");
@@ -20,8 +21,10 @@ async function loadCsv(configPath) {
       })
     );
 
+    const resolvedExportPath = path.resolve(currentDir, exportPath);
+
     const rows = responses.flatMap((response) => getParsedCSV(response));
-    await handleResponse(localesKey, rows, exportPath);
+    await handleResponse(localesKey, rows, resolvedExportPath);
   } catch (error) {
     console.error("Error fetching or processing CSV files:", error);
   }
@@ -87,7 +90,7 @@ function writeTranslation(localesKey, rows, locale) {
  */
 async function createJson(exportPath, locale, content) {
   try {
-    const filePath = path.resolve(__dirname, `${exportPath}/${locale}.json`);
+    const filePath = `${exportPath}/${locale}.json`;
     await fs.writeFile(filePath, content);
     console.log(`JSON in ${locale} is saved.`);
   } catch (error) {

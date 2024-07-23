@@ -11,7 +11,7 @@ const currentDir = process.cwd();
 const resolvedConfigPath = path.resolve(currentDir, configPath);
 
 try {
-  sheet2i18n(resolvedConfigPath);
+  sheet2i18n(resolvedConfigPath, currentDir);
 } catch (error) {
   console.error(
     `Failed to execute sheet2i18n with config path: ${resolvedConfigPath}`
