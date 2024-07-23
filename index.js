@@ -1,79 +1,98 @@
-var axios = require("axios");
-var fs = require("fs");
-var path = require("path");
-var parseCSV = require("csv-parse/sync");
+const fs = require("fs").promises;
+const path = require("path");
+const parseCSV = require("csv-parse/sync");
+const fetch = require("node-fetch");
 
+/**
+ * Load CSV files, parse them, and generate JSON files for localization.
+ * @param {string} configPath - Path to the configuration file.
+ */
 async function loadCsv(configPath) {
-  var { exportPath, tabsUrl, localesKey } = require(configPath);
+  const { exportPath, tabsUrl, localesKey } = require(configPath);
 
   console.log("[+] IMPORTING LOCALES");
-  axios.all(tabsUrl.map((urltab) => axios.get(urltab))).then(
-    axios.spread((...responses) => {
-      var rows = responses
-        .map((response) => getParsedCSV(response.data))
-        .flat(1);
-      handleResponse(localesKey, rows, `../../${exportPath}`);
-    })
-  );
+
+  try {
+    const responses = await Promise.all(
+      tabsUrl.map(async (urltab) => {
+        const response = await fetch(urltab);
+        return await response.text();
+      })
+    );
+
+    const rows = responses.flatMap((response) => getParsedCSV(response));
+    await handleResponse(localesKey, rows, exportPath);
+  } catch (error) {
+    console.error("Error fetching or processing CSV files:", error);
+  }
 }
 
+/**
+ * Parse a CSV string into an array of objects.
+ * @param {string} file - CSV file content as a string.
+ * @returns {Object[]} Parsed CSV data.
+ */
 function getParsedCSV(file) {
   return parseCSV.parse(file, {
     columns: (header) => header.map((col) => col.split(" ")[0].toLowerCase()),
   });
 }
 
-function handleResponse(localesKey, rows, exportPath) {
-  localesKey.forEach((localeKey) => {
-    var content = writeTranslation(localesKey, rows, localeKey);
-    createJson(exportPath, localeKey, `{\n${content}\n}\n`);
+/**
+ * Handle the parsed CSV data and generate JSON files for each locale.
+ * @param {string[]} localesKey - Array of locale keys.
+ * @param {Object[]} rows - Parsed CSV data.
+ * @param {string} exportPath - Path to export JSON files.
+ */
+async function handleResponse(localesKey, rows, exportPath) {
+  await localesKey.forEach(async (localeKey) => {
+    const content = writeTranslation(localesKey, rows, localeKey);
+    await createJson(exportPath, localeKey, `{\n${content}\n}\n`);
   });
 }
 
+/**
+ * Write translation content for a specific locale.
+ * @param {string[]} localesKey - Array of locale keys.
+ * @param {Object[]} rows - Parsed CSV data.
+ * @param {string} locale - Current locale key.
+ * @returns {string} Translation content as a JSON string.
+ */
 function writeTranslation(localesKey, rows, locale) {
-  var fallback =
+  const fallback =
     localesKey[(localesKey.indexOf(locale) + 1) % localesKey.length];
+
   return rows
-    .map(function (row) {
-      var newstring = undefined;
-      var key = row.key;
-      if (key.length > 0) {
-        while (key.indexOf(" ") !== -1) {
-          key = key.replace(" ", "");
-        }
-        var newRow = row[locale];
-        if (row[locale].length > 0) {
-          while (newRow.indexOf('"') !== -1) {
-            newRow = newRow.replace('"', "'");
-          }
-          while (key.indexOf(" ") !== -1) {
-            key = key.replace(" ", "");
-          }
-          newstring = `  "${key}": "${newRow.replace(
-            /(?:\r\n|\r|\n)/g,
-            "<br>"
-          )}"`;
-        } else if (row[fallback].length > 0) {
-          newstring = `  "${key}": "${row[fallback]}"`;
-        }
-      }
-      return newstring;
+    .map((row) => {
+      let { key } = row;
+      if (!key) return;
+
+      key = key.replace(/\s+/g, "");
+
+      const newRow =
+        row[locale]?.replace(/"/g, "'").replace(/(?:\r\n|\r|\n)/g, "<br>") ||
+        row[fallback];
+
+      return newRow ? `  "${key}": "${newRow}"` : undefined;
     })
-    .filter((row) => row !== undefined)
+    .filter(Boolean)
     .join(",\n");
 }
 
-function createJson(exportPath, locale, string) {
-  fs.writeFile(
-    path.resolve(__dirname, `${exportPath}/${locale}.json`),
-    string,
-    (err) => {
-      if (err) {
-        throw err;
-      }
-      console.log(`JSON in ${locale} is saved.`);
-    }
-  );
+/**
+ * Create a JSON file with the given content.
+ * @param {string} exportPath - Path to export JSON files.
+ * @param {string} locale - Locale key.
+ * @param {string} content - JSON content as a string.
+ */
+async function createJson(exportPath, locale, content) {
+  try {
+    const filePath = path.resolve(__dirname, `${exportPath}/${locale}.json`);
+    await fs.writeFile(filePath, content);
+    console.log(`JSON in ${locale} is saved.`);
+  } catch (error) {
+    console.error(`Error saving JSON for ${locale}:`, error);
+  }
 }
 
 module.exports = loadCsv;
